@@ -1,0 +1,7 @@
+# libfprint tests that fail for reasons outside this project. One test name per
+# line. A listed test that fails is reported but does not fail the run; a listed
+# test that passes is reported so the entry can be removed.
+#
+# egis_etu905 also fails on unmodified upstream libfprint v1.94.100 in a Fedora 44
+# container. Cause not yet investigated.
+egis_etu905

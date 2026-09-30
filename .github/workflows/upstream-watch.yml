@@ -18,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: watch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
           python3 scripts/upstream_watch.py > report.md

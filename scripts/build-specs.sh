@@ -17,6 +17,9 @@ for spec in $specs; do
     rpmlint "$spec"
     dir=$(dirname "$spec")
     spectool -g -C "$dir" "$spec"
+    if [ -f "$dir/sources" ]; then
+        (cd "$dir" && sha256sum -c sources)
+    fi
     dnf -y builddep "$spec"
     rpmbuild -ba --define "_topdir $top" --define "_sourcedir $PWD/$dir" "$spec"
 done

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Print a GitHub Actions matrix: the newest stable Fedora and N releases back."""
 import json
+import sys
 import urllib.request
 
 cfg = json.load(open("upstreams.json"))
@@ -14,4 +15,6 @@ include = [
     {"release": n, "image": f"registry.fedoraproject.org/fedora:{n}", "eol": n not in current}
     for n in range(latest, latest - back - 1, -1)
 ]
+if "--with-sources" in sys.argv:
+    include = [dict(e, source=name) for e in include for name in cfg["sources"]]
 print(json.dumps({"include": include}))

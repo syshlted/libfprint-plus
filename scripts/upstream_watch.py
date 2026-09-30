@@ -5,9 +5,9 @@ Exit status 1 when action is needed; the report goes to stdout as Markdown.
 """
 import datetime
 import json
+import os
 import re
 import subprocess
-import urllib.parse
 import urllib.request
 
 cfg = json.load(open("upstreams.json"))
@@ -15,7 +15,11 @@ problems, info = [], []
 
 
 def get(url):
-    with urllib.request.urlopen(url, timeout=30) as r:
+    req = urllib.request.Request(url)
+    token = os.environ.get("GITHUB_TOKEN")
+    if token and "api.github.com" in url:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
 
 
@@ -32,19 +36,15 @@ info.append(f"- libfprint upstream latest: `{latest}` (pinned: `{lf['pinned']}`)
 if vkey(latest) > vkey(lf["pinned"]):
     problems.append(f"New libfprint release `{latest}` is available; we pin `{lf['pinned']}`.")
 
-# --- goodixtls upstream activity
-gx = cfg["goodixtls"]
-slug = urllib.parse.urlparse(gx["repo"]).path.strip("/")
-meta = get(f"https://api.github.com/repos/{slug}")
-pushed = datetime.datetime.fromisoformat(meta["pushed_at"].replace("Z", "+00:00"))
-idle = (datetime.datetime.now(datetime.timezone.utc) - pushed).days
-info.append(f"- goodixtls upstream `{slug}`: last push {pushed.date()} ({idle} days ago), archived={meta['archived']}")
-if idle > gx["max_idle_days"]:
-    problems.append(f"`{slug}` has had no push for {idle} days (limit {gx['max_idle_days']}); "
-                    "security fixes are unlikely to arrive from it.")
-rel = get(f"https://api.github.com/repos/{slug}/releases?per_page=1")
-if rel and rel[0]["tag_name"] != gx["tag"]:
-    problems.append(f"New goodixtls release `{rel[0]['tag_name']}` (pinned `{gx['tag']}`).")
+# --- origin projects of our forks: anything new since the commit we pin?
+for name, src in cfg["sources"].items():
+    origin = src["origin"]
+    meta = get(f"https://api.github.com/repos/{origin}")
+    cmp = get(f"https://api.github.com/repos/{origin}/compare/{src['commit']}...{meta['default_branch']}")
+    pushed = meta["pushed_at"][:10]
+    info.append(f"- {name}: origin `{origin}` default branch `{meta['default_branch']}` is {cmp['ahead_by']} commit(s) ahead of our pin (last push {pushed})")
+    if cmp["ahead_by"] > 0:
+        problems.append(f"`{origin}` has {cmp['ahead_by']} commit(s) newer than our pinned {name} source `{src['commit'][:7]}`; review and merge into our fork.")
 
 # --- Fedora security updates for watched packages, on the releases we build for
 matrix = json.loads(subprocess.run(["python3", "scripts/fedora_matrix.py"], capture_output=True, text=True, check=True).stdout)

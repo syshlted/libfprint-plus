@@ -1,16 +1,19 @@
 #!/bin/sh
-# Download the pinned goodixtls source and verify its checksum. Usage: fetch-upstream.sh DESTDIR
+# Fetch one pinned source by exact commit. Usage: fetch-upstream.sh NAME DESTDIR
+# NAME is a key under "sources" in upstreams.json. The commit hash is
+# content-addressed, so a matching hash means the tree is exactly what was pinned.
 set -eu
 
 cd "$(dirname "$0")/.."
-dest=${1:?usage: fetch-upstream.sh DESTDIR}
-url=$(jq -r .goodixtls.url upstreams.json)
-sum=$(jq -r .goodixtls.sha256 upstreams.json)
-host=$(printf '%s\n' "$url" | sed -E 's|.*://([^/]+)/.*|\1|')
+name=${1:?usage: fetch-upstream.sh NAME DESTDIR}
+dest=${2:?usage: fetch-upstream.sh NAME DESTDIR}
+repo=$(jq -er ".sources[\"$name\"].repo" upstreams.json)
+commit=$(jq -er ".sources[\"$name\"].commit" upstreams.json)
+host=$(printf '%s\n' "$repo" | sed -E 's|.*://([^/]+)/.*|\1|')
 
 grep -qxF "$host" scripts/allowed-source-hosts.txt || { echo "host $host not allowed" >&2; exit 1; }
-mkdir -p "$dest"
-curl -fsSL -o "$dest/source.tar.gz" "$url"
-echo "$sum  $dest/source.tar.gz" | sha256sum -c -
-tar -xzf "$dest/source.tar.gz" -C "$dest" --strip-components=1
-rm "$dest/source.tar.gz"
+rm -rf "$dest"
+git init -q "$dest"
+git -C "$dest" fetch -q --depth 1 "$repo" "$commit"
+git -C "$dest" checkout -q FETCH_HEAD
+[ "$(git -C "$dest" rev-parse HEAD)" = "$commit" ] || { echo "commit mismatch for $name" >&2; exit 1; }

@@ -1,0 +1,45 @@
+name: libfprint tests
+
+# Builds each pinned driver source (upstreams.json) with all drivers on every
+# Fedora release in the matrix and runs libfprint's own test suite. Failures
+# listed in scripts/known-test-failures.txt are tolerated; any other fails the run.
+
+on:
+  pull_request:
+    paths: [upstreams.json, scripts/**, .github/workflows/libfprint-test.yml]
+  push:
+    branches: [master]
+    paths: [upstreams.json, scripts/**, .github/workflows/libfprint-test.yml]
+  schedule:
+    - cron: '53 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "matrix=$(python3 scripts/fedora_matrix.py --with-sources)" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: matrix
+    runs-on: ubuntu-latest
+    name: ${{ matrix.source }} on Fedora ${{ matrix.release }}
+    # EOL releases are informational: they must not block merges.
+    continue-on-error: ${{ matrix.eol }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare build tools
+        run: scripts/ci-prepare.sh ${{ matrix.release }} ${{ matrix.eol }}
+      - name: Build and test
+        run: scripts/test-libfprint.sh ${{ matrix.source }}

@@ -1,0 +1,3 @@
+[codespell]
+# gir: GObject introspection files (*.gir)
+ignore-words-list = gir
