@@ -5,7 +5,7 @@ name: Upstream source scan
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths: [upstreams.json, packaging/**, scripts/fetch-upstream.sh]
   pull_request:
     paths: [upstreams.json, packaging/**, scripts/fetch-upstream.sh]

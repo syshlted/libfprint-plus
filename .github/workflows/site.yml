@@ -1,13 +1,13 @@
 name: Site
 
 # Builds the Hugo site in site/ on every change, and deploys it to GitHub Pages
-# from main. Pages must be set to "GitHub Actions" under Settings > Pages.
+# from master. Pages must be set to "GitHub Actions" under Settings > Pages.
 
 on:
   pull_request:
     paths: [site/**, .github/workflows/site.yml]
   push:
-    branches: [main]
+    branches: [master]
     paths: [site/**, .github/workflows/site.yml]
   workflow_dispatch:
 
