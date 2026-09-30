@@ -1,0 +1,19 @@
+{
+  "fedora": {
+    "releases_back": 4,
+    "note": "Matrix = newest stable Fedora release and this many older ones. Releases Bodhi no longer lists as current are EOL: they are built best-effort only."
+  },
+  "libfprint": {
+    "repo": "https://gitlab.freedesktop.org/libfprint/libfprint.git",
+    "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+    "pinned": "v1.94.10"
+  },
+  "goodixtls": {
+    "repo": "https://github.com/goodix-fp-linux-dev/libfprint",
+    "tag": "libfprint-1.94.5-goodixtls-2cf5870",
+    "url": "https://github.com/goodix-fp-linux-dev/libfprint/archive/refs/tags/libfprint-1.94.5-goodixtls-2cf5870.tar.gz",
+    "sha256": "49fb7df44eb4cbd8735c638ba077b74e80e2757e55c42a88171e9a1cb8456723",
+    "max_idle_days": 365
+  },
+  "watch_packages": ["libfprint", "fprintd", "libusb1", "libgusb", "glib2", "openssl", "nss"]
+}

@@ -1,0 +1,2 @@
+gitlab.freedesktop.org
+github.com

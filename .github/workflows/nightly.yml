@@ -1,0 +1,64 @@
+name: Nightly rebuild against updated dependencies
+
+# Rebuilds every spec after `dnf upgrade`, so a broken or patched Fedora
+# dependency shows up as a failing run before users hit it.
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "matrix=$(python3 scripts/fedora_matrix.py)" >> "$GITHUB_OUTPUT"
+
+  rebuild:
+    needs: matrix
+    runs-on: ubuntu-latest
+    name: rebuild (Fedora ${{ matrix.release }})
+    continue-on-error: ${{ matrix.eol }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare build tools (includes dnf upgrade)
+        run: scripts/ci-prepare.sh ${{ matrix.release }} ${{ matrix.eol }}
+      - name: Build all specs
+        run: scripts/build-specs.sh
+      # Enable once a Copr project exists and COPR_CONFIG is stored as a secret:
+      # - name: Trigger Copr build
+      #   if: success() && matrix.release == 44
+      #   run: |
+      #     dnf -y install copr-cli
+      #     copr-cli --config <(echo "$COPR_CONFIG") build-package <owner>/<project> --name <package>
+
+  notify:
+    needs: rebuild
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Nightly rebuild failing';
+            const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const open = await github.rest.issues.listForRepo({...context.repo, state: 'open', labels: 'ci-failure'});
+            const existing = open.data.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({...context.repo, issue_number: existing.number, body: `Failed again: ${url}`});
+            } else {
+              await github.rest.issues.create({...context.repo, title, labels: ['ci-failure'],
+                body: `A dependency update may have broken a build: ${url}`});
+            }

@@ -1,0 +1,5 @@
+# Local image for spec linting and SRPM builds:
+#   podman build -t localhost/rpmlint:local -f tools/Containerfile.rpmlint tools/
+FROM registry.fedoraproject.org/fedora:latest
+RUN dnf -y install rpmlint rpm-build rpmdevtools git-core && dnf clean all
+WORKDIR /src

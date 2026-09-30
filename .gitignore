@@ -1,0 +1,10 @@
+# Local reference checkouts of upstream/fork sources (never commit)
+/github.com/
+
+# Build output
+/rpmbuild/
+/results/
+*.src.rpm
+*.rpm
+*.tar.gz
+*.tar.xz

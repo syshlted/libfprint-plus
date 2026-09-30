@@ -1,0 +1,49 @@
+name: Upstream source scan
+
+# Fetches the pinned upstream sources (checksum-verified) and scans them.
+# Runs on changes to the pins and weekly, to catch newly published CVEs.
+
+on:
+  push:
+    branches: [main]
+    paths: [upstreams.json, packaging/**, scripts/fetch-upstream.sh]
+  pull_request:
+    paths: [upstreams.json, packaging/**, scripts/fetch-upstream.sh]
+  schedule:
+    - cron: '29 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and verify pinned goodixtls source
+        run: scripts/fetch-upstream.sh upstream-src/goodixtls
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libglib2.0-dev libgusb-dev libgudev-1.0-dev libnss3-dev libpixman-1-dev libssl-dev libcairo2-dev gobject-introspection libgirepository1.0-dev
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          build-mode: manual
+      - name: Build upstream source for CodeQL
+        run: |
+          cd upstream-src/goodixtls
+          meson setup build -Ddoc=false -Dgtk-examples=false -Dintrospection=false -Ddrivers=all
+          ninja -C build
+      - uses: github/codeql-action/analyze@v3
+      - name: cppcheck
+        run: |
+          sudo apt-get install -y cppcheck
+          cppcheck --error-exitcode=1 --enable=warning,portability --suppress=missingIncludeSystem -q upstream-src/goodixtls/libfprint/drivers/goodixtls
+      - name: osv-scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2
+        with:
+          scan-args: --recursive upstream-src/
+        continue-on-error: true

@@ -1,0 +1,36 @@
+# Local checks. Requires podman on the host. Run inside the Flatpak with:
+#   flatpak-spawn --host ~/bin/lefthook run pre-push
+# Hooks can be skipped locally, so .github/workflows/ci.yml repeats them.
+
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: podman run --rm -v "$PWD:/repo:ro,z" docker.io/zricethezav/gitleaks:latest git --pre-commit --staged --redact -v /repo
+    shellcheck:
+      glob: "*.sh"
+      run: podman run --rm -v "$PWD:/mnt:ro,z" docker.io/koalaman/shellcheck:stable {staged_files}
+    yamllint:
+      glob: "*.{yml,yaml}"
+      run: podman run --rm -v "$PWD:/data:ro,z" docker.io/cytopia/yamllint:latest {staged_files}
+    codespell:
+      run: podman run --rm -e INPUT_SKIP=./github.com,./.git -v "$PWD:/github/workspace:ro,z" -w /github/workspace ghcr.io/codespell-project/actions-codespell/master:latest
+    rpmlint:
+      glob: "*.spec"
+      run: podman run --rm -v "$PWD:/src:ro,z" localhost/rpmlint:local rpmlint {staged_files}
+    source-hosts:
+      glob: "*.spec"
+      run: scripts/check-source-hosts.sh
+
+pre-push:
+  parallel: true
+  commands:
+    gitleaks-history:
+      run: podman run --rm -v "$PWD:/repo:ro,z" docker.io/zricethezav/gitleaks:latest git --redact -v /repo
+    trivy:
+      run: podman run --rm -v "$PWD:/src:ro,z" docker.io/aquasec/trivy:latest fs --scanners vuln,secret,misconfig --exit-code 1 --skip-dirs /src/github.com /src
+    osv-scanner:
+      # Non-fatal: exits non-zero when no lockfiles are found, which is expected for a specs-only repo.
+      run: podman run --rm -v "$PWD:/src:ro,z" localhost/osv-scanner:local scan source -r /src || true
+    cppcheck:
+      run: test -z "$(find packaging -name '*.[ch]' -print -quit)" || podman run --rm -v "$PWD:/src:ro,z" docker.io/ams21/cppcheck:latest cppcheck --error-exitcode=1 --enable=warning,portability /src/packaging

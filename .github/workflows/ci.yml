@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: shellcheck
+        run: find . -name '*.sh' -not -path './github.com/*' -exec shellcheck {} +
+      - name: yamllint
+        run: yamllint .
+      - name: codespell
+        uses: codespell-project/actions-codespell@v2
+        with:
+          skip: ./github.com,./.git
+      - name: source host allowlist
+        run: scripts/check-source-hosts.sh
+      - name: trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          exit-code: '1'
+
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "matrix=$(python3 scripts/fedora_matrix.py)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: [lint, matrix]
+    runs-on: ubuntu-latest
+    name: build (Fedora ${{ matrix.release }})
+    # EOL releases are informational: they must not block merges.
+    continue-on-error: ${{ matrix.eol }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare build tools
+        run: scripts/ci-prepare.sh ${{ matrix.release }} ${{ matrix.eol }}
+      - name: Build all specs
+        run: scripts/build-specs.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rpms-fc${{ matrix.release }}
+          path: rpmbuild/RPMS
+          retention-days: 14
+          if-no-files-found: ignore

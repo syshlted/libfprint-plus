@@ -1,0 +1,41 @@
+name: Upstream watch
+
+# Daily: compare our pinned upstreams with new libfprint releases, goodixtls
+# activity, and fresh Fedora security updates for the packages we depend on.
+
+on:
+  schedule:
+    - cron: '43 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: watch
+        run: |
+          set +e
+          python3 scripts/upstream_watch.py > report.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Open or update the tracking issue
+        if: steps.watch.outputs.status != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('fs').readFileSync('report.md', 'utf8');
+            const title = 'Upstream watch: action needed';
+            const open = await github.rest.issues.listForRepo({...context.repo, state: 'open', labels: 'upstream-watch'});
+            const existing = open.data.find(i => i.title === title);
+            if (existing) {
+              if (existing.body !== body) {
+                await github.rest.issues.update({...context.repo, issue_number: existing.number, body});
+              }
+            } else {
+              await github.rest.issues.create({...context.repo, title, body, labels: ['upstream-watch']});
+            }
