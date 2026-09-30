@@ -30,7 +30,7 @@ pre-push:
       run: podman run --rm -v "$PWD:/repo:ro,z" docker.io/zricethezav/gitleaks:latest git --redact -v /repo
     trivy:
       files: git ls-files
-      run: podman run --rm -v "$PWD:/src:ro,z" docker.io/aquasec/trivy:latest fs --scanners vuln,secret,misconfig --exit-code 1 --skip-dirs /src/github.com /src
+      run: podman run --rm -v "$PWD:/src:ro,z" -v trivy-cache:/root/.cache docker.io/aquasec/trivy:latest fs -q --scanners vuln,secret,misconfig --exit-code 1 --skip-dirs /src/github.com --ignorefile /src/.trivyignore /src
     osv-scanner:
       files: git ls-files
       # Non-fatal: exits non-zero when no lockfiles are found, which is expected for a specs-only repo.
