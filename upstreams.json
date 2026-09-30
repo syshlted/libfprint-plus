@@ -18,7 +18,7 @@
     },
     "cs9711": {
       "repo": "https://github.com/syshlted/libfprint-Chipsailing-CS9711",
-      "commit": "02b285c9703c38d308fbe47a3c566ef1e7f883ca",
+      "commit": "deed21dad7c3c04c719cfed7240ee352002c7dcb",
       "origin": "archeYR/libfprint-CS9711",
       "build_requires": [
         "opencv-devel",

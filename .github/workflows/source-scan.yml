@@ -56,7 +56,7 @@ jobs:
           cd upstream-src/${{ matrix.source }}
           cppcheck --error-exitcode=1 --enable=warning,portability --suppress=missingIncludeSystem -q ${{ matrix.cppcheck_paths }}
       - name: osv-scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v2
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
           scan-args: --recursive upstream-src/${{ matrix.source }}
         continue-on-error: true
