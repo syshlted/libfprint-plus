@@ -26,11 +26,15 @@ pre-push:
   parallel: true
   commands:
     gitleaks-history:
+      files: git ls-files
       run: podman run --rm -v "$PWD:/repo:ro,z" docker.io/zricethezav/gitleaks:latest git --redact -v /repo
     trivy:
+      files: git ls-files
       run: podman run --rm -v "$PWD:/src:ro,z" docker.io/aquasec/trivy:latest fs --scanners vuln,secret,misconfig --exit-code 1 --skip-dirs /src/github.com /src
     osv-scanner:
+      files: git ls-files
       # Non-fatal: exits non-zero when no lockfiles are found, which is expected for a specs-only repo.
       run: podman run --rm -v "$PWD:/src:ro,z" localhost/osv-scanner:local scan source -r /src || true
     cppcheck:
+      files: git ls-files
       run: test -z "$(find packaging -name '*.[ch]' -print -quit)" || podman run --rm -v "$PWD:/src:ro,z" docker.io/ams21/cppcheck:latest cppcheck --error-exitcode=1 --enable=warning,portability /src/packaging

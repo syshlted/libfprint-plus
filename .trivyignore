@@ -1,0 +1,3 @@
+# One-shot tool images run under `podman run --rm`; a HEALTHCHECK adds nothing.
+AVD-DS-0026
+DS-0026

@@ -1,4 +1,5 @@
 # Signing tools; the private key stays in the host's gpg-agent (see scripts/sign-rpms.sh):
 #   podman build -t localhost/rpmsign:local -f tools/Containerfile.rpmsign tools/
-FROM registry.fedoraproject.org/fedora:latest
+FROM registry.fedoraproject.org/fedora:44
 RUN dnf -y install rpm-sign gnupg2 && dnf clean all
+USER 1000
