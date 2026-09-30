@@ -23,7 +23,7 @@ jobs:
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: m
         run: echo "matrix=$(python3 scripts/fedora_matrix.py --with-sources)" >> "$GITHUB_OUTPUT"
 
@@ -38,7 +38,7 @@ jobs:
       matrix: ${{ fromJSON(needs.matrix.outputs.matrix) }}
     container: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Prepare build tools
         run: scripts/ci-prepare.sh ${{ matrix.release }} ${{ matrix.eol }}
       - name: Build and test
