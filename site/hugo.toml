@@ -1,0 +1,24 @@
+baseURL = 'https://syshlted.github.io/libfprint-plus/'
+languageCode = 'en-us'
+title = 'libfprint-plus'
+enableRobotsTXT = true
+disableKinds = ['taxonomy', 'term', 'RSS']
+
+[params]
+  description = 'Fingerprint reader drivers for Fedora, RHEL-family and SUSE, packaged as signed RPMs.'
+  repo = 'https://github.com/syshlted/libfprint-plus'
+  signingKeyFingerprint = '34FB ED7D 7A81 4859 9AA3  2090 35D6 90E0 EA17 CF6B'
+
+[menus]
+  [[menus.main]]
+    name = 'Install'
+    url = '/install/'
+    weight = 10
+  [[menus.main]]
+    name = 'Repositories'
+    url = '/repos/'
+    weight = 20
+  [[menus.main]]
+    name = 'Security'
+    url = '/security/'
+    weight = 30

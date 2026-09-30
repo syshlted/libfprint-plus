@@ -1,0 +1,50 @@
+name: Site
+
+# Builds the Hugo site in site/ on every change, and deploys it to GitHub Pages
+# from main. Pages must be set to "GitHub Actions" under Settings > Pages.
+
+on:
+  pull_request:
+    paths: [site/**, .github/workflows/site.yml]
+  push:
+    branches: [main]
+    paths: [site/**, .github/workflows/site.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.162.1'
+          extended: true
+      - name: Build
+        run: hugo --source site --minify --gc --panicOnWarning
+      # Added later, once repositories exist: merge the signed RPM repos into
+      # site/public/repo before the artifact is uploaded.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/public
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

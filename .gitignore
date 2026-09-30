@@ -8,3 +8,8 @@
 *.rpm
 *.tar.gz
 *.tar.xz
+
+# Hugo
+/site/public/
+/site/resources/
+/site/.hugo_build.lock
