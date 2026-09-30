@@ -16,9 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: docker run --rm -v "$PWD:/repo" docker.io/zricethezav/gitleaks:latest git --redact -v /repo
       - name: shellcheck
         run: find . -name '*.sh' -not -path './github.com/*' -exec shellcheck {} +
       - name: yamllint
