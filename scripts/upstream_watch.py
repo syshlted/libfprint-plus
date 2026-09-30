@@ -32,19 +32,20 @@ lf = cfg["libfprint"]
 out = subprocess.run(["git", "ls-remote", "--tags", "--refs", lf["repo"]], capture_output=True, text=True, check=True).stdout
 tags = [l.split("refs/tags/")[1] for l in out.splitlines() if re.match(lf["tag_pattern"], l.split("refs/tags/")[1])]
 latest = max(tags, key=vkey)
-info.append(f"- libfprint upstream latest: `{latest}` (pinned: `{lf['pinned']}`)")
-if vkey(latest) > vkey(lf["pinned"]):
-    problems.append(f"New libfprint release `{latest}` is available; we pin `{lf['pinned']}`.")
+info.append(f"- libfprint upstream latest: `{latest}`")
+for name, src in cfg["sources"].items():
+    if vkey(latest) > vkey(src["base"]):
+        problems.append(f"New libfprint release `{latest}` is available; the {name} source is based on `{src['base']}`. Rebase our fork.")
 
 # --- origin projects of our forks: anything new since the commit we pin?
 for name, src in cfg["sources"].items():
     origin = src["origin"]
     meta = get(f"https://api.github.com/repos/{origin}")
-    cmp = get(f"https://api.github.com/repos/{origin}/compare/{src['commit']}...{meta['default_branch']}")
+    cmp = get(f"https://api.github.com/repos/{origin}/compare/{src['origin_base']}...{meta['default_branch']}")
     pushed = meta["pushed_at"][:10]
-    info.append(f"- {name}: origin `{origin}` default branch `{meta['default_branch']}` is {cmp['ahead_by']} commit(s) ahead of our pin (last push {pushed})")
+    info.append(f"- {name}: origin `{origin}` default branch `{meta['default_branch']}` is {cmp['ahead_by']} commit(s) ahead of the commit our fork started from (last push {pushed})")
     if cmp["ahead_by"] > 0:
-        problems.append(f"`{origin}` has {cmp['ahead_by']} commit(s) newer than our pinned {name} source `{src['commit'][:7]}`; review and merge into our fork.")
+        problems.append(f"`{origin}` has {cmp['ahead_by']} commit(s) newer than the commit our {name} fork started from (`{src['origin_base'][:7]}`); review and merge into our fork.")
 
 # --- Fedora security updates for watched packages, on the releases we build for
 matrix = json.loads(subprocess.run(["python3", "scripts/fedora_matrix.py"], capture_output=True, text=True, check=True).stdout)

@@ -4,14 +4,13 @@
 ## (a fork of lbssousa/libfprint, itself a fork of freedesktop libfprint).
 ## The commit and its tarball checksum are pinned here and in ./sources.
 ##
-## NOTE: this commit is based on libfprint 1.94.10. Fedora 43 and newer ship
-## 1.94.100, which is a newer version, so this package will not replace it there.
-## Move to a 1.94.100-based commit before publishing for those releases.
+## Based on libfprint 1.94.100, which matches Fedora 43 and newer. The Release is
+## higher than Fedora's so this supersedes the stock package on the same Version.
 
-%global commit 037912c17992d2abc81c79c40e85b45ba1d3871e
+%global commit 26a8bd35206ec3d37defd96acbb0ee2361298c3e
 
 Name:           libfprint
-Version:        1.94.10
+Version:        1.94.100
 Release:        101.goodix538d%{?dist}
 Summary:        Toolkit for fingerprint scanner (with Goodix 538d support)
 
@@ -103,6 +102,6 @@ python3 %{SOURCE1} %{_vpath_builddir} %{SOURCE2}
 %{_datadir}/installed-tests/libfprint-2/
 
 %changelog
-* Wed Sep 30 2026 Jeremy Melanson <1080872+zish@users.noreply.github.com> - 1.94.10-101.goodix538d
-- Build the pinned commit of the syshlted fork; enable the test suite in %%check
-  with a documented list of tolerated failures.
+* Wed Sep 30 2026 Jeremy Melanson <1080872+zish@users.noreply.github.com> - 1.94.100-101.goodix538d
+- Build the pinned commit of the syshlted fork, merged onto libfprint 1.94.100;
+  enable the test suite in %%check with a documented list of tolerated failures.

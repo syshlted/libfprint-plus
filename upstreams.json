@@ -5,22 +5,36 @@
   },
   "libfprint": {
     "repo": "https://gitlab.freedesktop.org/libfprint/libfprint.git",
-    "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
-    "pinned": "v1.94.10"
+    "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
   },
   "sources": {
     "goodix": {
       "repo": "https://github.com/syshlted/libfprint-goodix-538d",
-      "commit": "037912c17992d2abc81c79c40e85b45ba1d3871e",
+      "commit": "26a8bd35206ec3d37defd96acbb0ee2361298c3e",
       "origin": "lbssousa/libfprint",
-      "build_requires": []
+      "build_requires": [],
+      "base": "v1.94.100",
+      "origin_base": "037912c17992d2abc81c79c40e85b45ba1d3871e"
     },
     "cs9711": {
       "repo": "https://github.com/syshlted/libfprint-Chipsailing-CS9711",
       "commit": "02b285c9703c38d308fbe47a3c566ef1e7f883ca",
       "origin": "archeYR/libfprint-CS9711",
-      "build_requires": ["opencv-devel", "doctest-devel"]
+      "build_requires": [
+        "opencv-devel",
+        "doctest-devel"
+      ],
+      "base": "v1.94.10",
+      "origin_base": "02b285c9703c38d308fbe47a3c566ef1e7f883ca"
     }
   },
-  "watch_packages": ["libfprint", "fprintd", "libusb1", "libgusb", "glib2", "openssl", "nss"]
+  "watch_packages": [
+    "libfprint",
+    "fprintd",
+    "libusb1",
+    "libgusb",
+    "glib2",
+    "openssl",
+    "nss"
+  ]
 }
