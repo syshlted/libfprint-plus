@@ -32,7 +32,7 @@ jobs:
             cppcheck_paths: libfprint/drivers/cs9711 libfprint/sigfm
             apt_extra: libopencv-dev doctest-dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fetch the pinned source
         run: scripts/fetch-upstream.sh ${{ matrix.source }} upstream-src/${{ matrix.source }}
       - name: Install build dependencies
