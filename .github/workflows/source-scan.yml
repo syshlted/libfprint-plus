@@ -38,7 +38,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build libglib2.0-dev libgusb-dev libgudev-1.0-dev libnss3-dev libpixman-1-dev libssl-dev libcairo2-dev gobject-introspection libgirepository1.0-dev cppcheck ${{ matrix.apt_extra }}
+          sudo apt-get install -y meson ninja-build cmake udev libudev-dev libglib2.0-dev libgusb-dev libgudev-1.0-dev libnss3-dev libpixman-1-dev libssl-dev libcairo2-dev gobject-introspection libgirepository1.0-dev cppcheck ${{ matrix.apt_extra }}
       - uses: github/codeql-action/init@v3
         with:
           languages: c-cpp
@@ -46,7 +46,7 @@ jobs:
       - name: Build for CodeQL
         run: |
           cd upstream-src/${{ matrix.source }}
-          meson setup build -Ddoc=false -Dgtk-examples=false -Dintrospection=false -Dinstalled-tests=false -Ddrivers=all
+          meson setup build -Ddoc=false -Dgtk-examples=false -Dintrospection=true -Dinstalled-tests=false -Ddrivers=all
           ninja -C build
       - uses: github/codeql-action/analyze@v3
         with:
@@ -54,7 +54,13 @@ jobs:
       - name: cppcheck
         run: |
           cd upstream-src/${{ matrix.source }}
-          cppcheck --error-exitcode=1 --enable=warning,portability --suppress=missingIncludeSystem -q ${{ matrix.cppcheck_paths }}
+          # unknownMacro: cppcheck does not see GLib's G_DECLARE_* macros.
+          # invalidFunctionArg in goodix.c: "const guint16 size = -1" wraps to 65535,
+          # but cppcheck does not know guint16 is unsigned.
+          cppcheck --error-exitcode=1 --enable=warning,portability \
+            --suppress=missingIncludeSystem --suppress=unknownMacro \
+            --suppress=invalidFunctionArg:libfprint/drivers/goodixtls/goodix.c \
+            -q ${{ matrix.cppcheck_paths }}
       - name: osv-scanner
         uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
