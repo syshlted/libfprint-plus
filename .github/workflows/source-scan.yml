@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y meson ninja-build cmake udev libudev-dev libglib2.0-dev libgusb-dev libgudev-1.0-dev libnss3-dev libpixman-1-dev libssl-dev libcairo2-dev gobject-introspection libgirepository1.0-dev cppcheck ${{ matrix.apt_extra }}
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: c-cpp
           build-mode: manual
@@ -48,7 +48,7 @@ jobs:
           cd upstream-src/${{ matrix.source }}
           meson setup build -Ddoc=false -Dgtk-examples=false -Dintrospection=true -Dinstalled-tests=false -Ddrivers=all
           ninja -C build
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: /source:${{ matrix.source }}
       - name: cppcheck
