@@ -30,7 +30,7 @@ jobs:
             apt_extra: ''
           - source: cs9711
             cppcheck_paths: libfprint/drivers/cs9711 libfprint/sigfm
-            apt_extra: libopencv-dev doctest-dev
+            apt_extra: ''
     steps:
       - uses: actions/checkout@v4
       - name: Fetch the pinned source
