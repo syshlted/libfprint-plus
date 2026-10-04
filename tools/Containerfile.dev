@@ -1,0 +1,8 @@
+# Build and run libfprint's example programs against a pinned source (see scripts/fprint-dev.sh):
+#   podman build -t localhost/libfprint-plus-dev:local -f tools/Containerfile.dev tools/
+FROM registry.fedoraproject.org/fedora:44
+RUN dnf -y install meson ninja-build gcc gcc-c++ openssl-devel glib2-devel libgusb-devel \
+        nss-devel pixman-devel libgudev-devel gobject-introspection-devel cairo-devel \
+        python3-cairo python3-gobject umockdev-devel systemd git \
+    && dnf clean all
+USER 1000

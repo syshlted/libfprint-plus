@@ -1,0 +1,7 @@
+# libfprint-plus: give the logged-in user access to the Goodix 538d and the
+# Chipsailing CS9711, so libfprint's examples can be run without root.
+# Development only: the packaged library is used through fprintd, which runs
+# as root and needs no rule like this. Install as /etc/udev/rules.d/ and
+# remove when no longer testing.
+ACTION=="add|change", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="27c6", ATTR{idProduct}=="538d", TAG+="uaccess"
+ACTION=="add|change", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="2541", ATTR{idProduct}=="0236", TAG+="uaccess"
