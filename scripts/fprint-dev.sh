@@ -11,7 +11,8 @@
 # inside a rootless podman container. The container gets the USB bus, so your
 # user needs access to the sensor (see packaging/udev/71-libfprint-plus-dev.rules).
 # Prints enrolled by the examples are kept in ~/.cache/libfprint-plus-dev/NAME/state.
-# Output is libfprint's debug log, each line with the time since the previous one.
+# Output is line-buffered (the examples print some prompts without flushing)
+# and is libfprint's debug log, each line with the time since the previous one.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -53,7 +54,7 @@ podman run --rm -i --security-opt label=disable --userns=keep-id \
     --device /dev/bus/usb -v /run/udev:/run/udev:ro \
     -v "$work:/work:ro" -v "$state:/state" -w /state \
     -e G_MESSAGES_DEBUG=all "$image" \
-    "/work/build/examples/$example" 2>&1 |
+    stdbuf -oL "/work/build/examples/$example" 2>&1 |
     while IFS= read -r line; do
         printf '%s %s\n' "$(date +%s.%N)" "$line"
     done |
