@@ -11,8 +11,9 @@
 # inside a rootless podman container. The container gets the USB bus, so your
 # user needs access to the sensor (see packaging/udev/71-libfprint-plus-dev.rules).
 # Prints enrolled by the examples are kept in ~/.cache/libfprint-plus-dev/NAME/state.
-# Output is line-buffered (the examples print some prompts without flushing)
-# and is libfprint's debug log, each line with the time since the previous one.
+# Output is libfprint's debug log, each line with the time since the previous
+# one (see timeline.py). The examples print some prompts without a newline,
+# which timeline.py shows after a short wait.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -50,25 +51,9 @@ if [ ! -x "$work/build/examples/$example" ]; then
 fi
 
 echo "== running $example; touch the sensor when asked" >&2
-podman run --rm -i --security-opt label=disable --userns=keep-id \
+podman run --rm -i --init --security-opt label=disable --userns=keep-id \
     --device /dev/bus/usb -v /run/udev:/run/udev:ro \
     -v "$work:/work:ro" -v "$state:/state" -w /state \
     -e G_MESSAGES_DEBUG=all "$image" \
     stdbuf -oL "/work/build/examples/$example" 2>&1 |
-    while IFS= read -r line; do
-        printf '%s %s\n' "$(date +%s.%N)" "$line"
-    done |
-    awk -v thr="$threshold" '
-        {
-            ts = $1 + 0
-            if (prev != "") {
-                gap = (ts - prev) * 1000
-                printf "%8.1f ms%s  ", gap, (gap > thr) ? "  <<<" : ""
-            } else {
-                printf "%8s ms  ", "0.0"
-            }
-            prev = ts
-            $1 = ""
-            print substr($0, 2)
-            fflush()
-        }'
+    python3 scripts/timeline.py "$threshold"

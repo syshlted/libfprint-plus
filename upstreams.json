@@ -18,7 +18,7 @@
     },
     "cs9711": {
       "repo": "https://github.com/syshlted/libfprint-Chipsailing-CS9711",
-      "commit": "4b7087982a89b54e4a23928e07e311104b3f117a",
+      "commit": "5b98abc38e271ff1c01b6784f5313537b791e08f",
       "origin": "archeYR/libfprint-CS9711",
       "build_requires": [],
       "base": "v1.94.10",
