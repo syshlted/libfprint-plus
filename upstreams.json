@@ -10,7 +10,7 @@
   "sources": {
     "goodix": {
       "repo": "https://github.com/syshlted/libfprint-goodix-538d",
-      "commit": "26a8bd35206ec3d37defd96acbb0ee2361298c3e",
+      "commit": "b6e60bff6a43aa5c4a1739cc140941514660f12f",
       "origin": "lbssousa/libfprint",
       "build_requires": [],
       "base": "v1.94.100",
