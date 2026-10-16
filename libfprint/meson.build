@@ -1,7 +1,7 @@
 spi_sources = []
 spi_headers = []
 
-if enabled_spi_drivers.length() > 0
+if have_spi
   spi_headers = ['fpi-spi-transfer.h']
   spi_sources = ['fpi-spi-transfer.c']
 endif
@@ -21,6 +21,7 @@ libfprint_private_sources = [
     'fpi-device.c',
     'fpi-image-device.c',
     'fpi-image.c',
+    'fpi-log.c',
     'fpi-print.c',
     'fpi-ssm.c',
     'fpi-usb-transfer.c',
@@ -88,89 +89,68 @@ nbis_sources = [
 ]
 
 driver_sources = {
-    'upekts' :
-        [ 'drivers/upekts.c', 'drivers/upek_proto.c' ],
-    'upektc' :
-        [ 'drivers/upektc.c' ],
-    'upeksonly' :
-        [ 'drivers/upeksonly.c' ],
-    'uru4000' :
-        [ 'drivers/uru4000.c' ],
-    'aes1610' :
-        [ 'drivers/aes1610.c' ],
-    'aes1660' :
-        [ 'drivers/aes1660.c' ],
-    'aes2501' :
-        [ 'drivers/aes2501.c' ],
-    'aes2550' :
-        [ 'drivers/aes2550.c' ],
-    'aes2660' :
-        [ 'drivers/aes2660.c' ],
-    'aes3500' :
-        [ 'drivers/aes3500.c' ],
-    'aes4000' :
-        [ 'drivers/aes4000.c' ],
-    'vcom5s' :
-        [ 'drivers/vcom5s.c' ],
-    'vfs101' :
-        [ 'drivers/vfs101.c' ],
-    'vfs301' :
-        [ 'drivers/vfs301.c', 'drivers/vfs301_proto.c' ],
-    'vfs5011' :
-        [ 'drivers/vfs5011.c' ],
-    'vfs7552' :
-        [ 'drivers/vfs7552.c' ],
-    'upektc_img' :
-        [ 'drivers/upektc_img.c',  'drivers/upek_proto.c' ],
-    'etes603' :
-        [ 'drivers/etes603.c' ],
-    'egis0570' :
-        [ 'drivers/egis0570.c' ],
-    'egismoc' :
-        [ 'drivers/egismoc/egismoc.c' ],
-    'vfs0050' :
-        [ 'drivers/vfs0050.c' ],
-    'elan' :
-        [ 'drivers/elan.c' ],
-    'elanmoc' :
-        [ 'drivers/elanmoc/elanmoc.c' ],
-    'elanspi' :
-        [ 'drivers/elanspi.c' ],
-    'nb1010' :
-        [ 'drivers/nb1010.c' ],
-    'virtual_image' :
-        [ 'drivers/virtual-image.c' ],
-    'virtual_device' :
-        [ 'drivers/virtual-device.c' ],
-    'virtual_device_storage' :
-        [ 'drivers/virtual-device-storage.c' ],
-    'synaptics' :
-        [ 'drivers/synaptics/synaptics.c', 'drivers/synaptics/bmkt_message.c' ],
-    'goodixmoc' :
-        [ 'drivers/goodixmoc/goodix.c', 'drivers/goodixmoc/goodix_proto.c' ],
-    'fpcmoc' :
-        [ 'drivers/fpcmoc/fpc.c' ],
-    'realtek' :
-        [ 'drivers/realtek/realtek.c' ],
-    'focaltech_moc' :
-        [ 'drivers/focaltech_moc/focaltech_moc.c' ],
-    'cs9711' :
-        [ 'drivers/cs9711/cs9711.c' ],
+    'upekts' : files(
+        'drivers/upekts.c',
+        'drivers/upek_proto.c',
+    ),
+    'upektc' : files('drivers/upektc.c'),
+    'upeksonly' : files('drivers/upeksonly.c'),
+    'uru4000' : files('drivers/uru4000.c'),
+    'aes1610' : files('drivers/aes1610.c'),
+    'aes1660' : files('drivers/aes1660.c'),
+    'aes2501' : files('drivers/aes2501.c'),
+    'aes2550' : files('drivers/aes2550.c'),
+    'aes2660' : files('drivers/aes2660.c'),
+    'aes3500' : files('drivers/aes3500.c'),
+    'aes4000' : files('drivers/aes4000.c'),
+    'vcom5s' : files('drivers/vcom5s.c'),
+    'vfs101' : files('drivers/vfs101.c'),
+    'vfs301' : files(
+        'drivers/vfs301.c',
+        'drivers/vfs301_proto.c',
+    ),
+    'vfs5011' : files('drivers/vfs5011.c'),
+    'vfs7552' : files('drivers/vfs7552.c'),
+    'upektc_img' : files(
+        'drivers/upektc_img.c',
+        'drivers/upek_proto.c',
+    ),
+    'etes603' : files('drivers/etes603.c'),
+    'egis0570' : files('drivers/egis0570.c'),
+    'egismoc' : files('drivers/egismoc/egismoc.c'),
+    'egis_etu905' : files('drivers/egismoc/egis_etu905.c'),
+    'vfs0050' : files('drivers/vfs0050.c'),
+    'elan' : files('drivers/elan.c'),
+    'elanmoc' : files('drivers/elanmoc/elanmoc.c'),
+    'elanspi' : files('drivers/elanspi.c'),
+    'nb1010' : files('drivers/nb1010.c'),
+    'virtual_image' : files('drivers/virtual-image.c'),
+    'virtual_device' : files('drivers/virtual-device.c'),
+    'virtual_device_storage' : files('drivers/virtual-device-storage.c'),
+    'synaptics' : files(
+        'drivers/synaptics/synaptics.c',
+        'drivers/synaptics/bmkt_message.c',
+    ),
+    'goodixmoc' : files(
+        'drivers/goodixmoc/goodix.c',
+        'drivers/goodixmoc/goodix_proto.c',
+    ),
+    'fpcmoc' : files('drivers/fpcmoc/fpc.c'),
+    'realtek' : files('drivers/realtek/realtek.c'),
+    'focaltech_moc' : files('drivers/focaltech_moc/focaltech_moc.c'),
+    'cs9711' : files('drivers/cs9711/cs9711.c'),
+    'mafpmoc' : files('drivers/mafpmoc/mafpmoc.c'),
+    'secugen' : files('drivers/secugen.c'),
 }
 
 helper_sources = {
-    'aeslib' :
-        [ 'drivers/aeslib.c' ],
-    'aesx660' :
-        [ 'drivers/aesx660.c' ],
-    'aes3k' :
-        [ 'drivers/aes3k.c' ],
-    'openssl' :
-        [ ],
-    'udev' :
-        [ ],
-    'virtual' :
-        [ 'drivers/virtual-device-listener.c' ],
+    'aeslib': files('drivers/aeslib.c'),
+    'aesx660': files('drivers/aesx660.c'),
+    'aes3k': files('drivers/aes3k.c'),
+    'openssl': files(),
+    'pixman': files(),
+    'udev': files(),
+    'virtual': files('drivers/virtual-device-listener.c'),
 }
 
 drivers_sources = []
@@ -234,6 +214,7 @@ deps = [
     enums_dep,
     gio_dep,
     glib_dep,
+    gmodule_dep,
     gobject_dep,
     gusb_dep,
     mathlib_dep,
@@ -260,6 +241,7 @@ libnbis = static_library('nbis',
         '-Wno-discarded-qualifiers',
         '-Wno-array-bounds',
         '-Wno-array-parameter',
+        '-Wno-unused-but-set-variable',
     ]),
     install: false)
 
@@ -326,11 +308,15 @@ libfprint_private_dep = declare_dependency(
     ]
 )
 
+udev_hwdb_list = 'fprint-list-udev-hwdb.c'
+udev_hwdb_list_file = files(udev_hwdb_list)
 udev_hwdb = executable('fprint-list-udev-hwdb',
-    'fprint-list-udev-hwdb.c',
+    udev_hwdb_list_file,
     dependencies: libfprint_private_dep,
     link_with: libfprint_drivers,
-    install: false)
+    install: false,
+    link_args: ['-Wl,--disable-new-dtags'],
+)
 
 udev_hwdb_generator = custom_target('udev-hwdb',
     output: 'autosuspend.hwdb',
@@ -344,7 +330,9 @@ metainfo = executable('fprint-list-metainfo',
     'fprint-list-metainfo.c',
     dependencies: libfprint_private_dep,
     link_with: libfprint_drivers,
-    install: false)
+    install: false,
+    link_args: ['-Wl,--disable-new-dtags'],
+)
 
 metainfo_generator = custom_target('metainfo',
     output: 'org.freedesktop.libfprint.metainfo.xml',
@@ -360,7 +348,9 @@ if install_udev_rules
         'fprint-list-udev-rules.c',
         dependencies: libfprint_private_dep,
         link_with: libfprint_drivers,
-        install: false)
+        install: false,
+        link_args: ['-Wl,--disable-new-dtags'],
+    )
 
     custom_target('udev-rules',
         output: '70-@0@.rules'.format(versioned_libname),
@@ -372,10 +362,13 @@ if install_udev_rules
     )
 endif
 
-sync_udev_udb = custom_target('sync-udev-hwdb',
-    depends: udev_hwdb_generator,
-    output: 'sync-udev-hwdb',
-    install: false,
+udev_hwdb_list_updater = custom_target('udev-hwdb-list-updater',
+    output: udev_hwdb_list,
+    command: [ sync_unsupported_files, udev_hwdb_list_file ],
+)
+
+run_target('sync-udev-hwdb',
+    depends: udev_hwdb_list_updater,
     command: [
         'cp', '-v',
         udev_hwdb_generator.full_path(),
@@ -383,7 +376,7 @@ sync_udev_udb = custom_target('sync-udev-hwdb',
     ]
 )
 
-alias_target('sync-udev-hwdb', sync_udev_udb)
+alias_target('sync-unsupported-devices', udev_hwdb_list_updater)
 
 supported_devices = executable('fprint-list-supported-devices',
     'fprint-list-supported-devices.c',

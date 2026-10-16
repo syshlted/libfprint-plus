@@ -92,6 +92,22 @@ fpi_print_set_type (FpPrint     *print,
 }
 
 /**
+ * fpi_print_get_type:
+ * @print: A #FpPrint
+ *
+ * Retrieves the type of the print data.
+ *
+ * Returns: The #FpiPrintType of the print.
+ */
+FpiPrintType
+fpi_print_get_type (FpPrint *print)
+{
+  g_return_val_if_fail (FP_IS_PRINT (print), FPI_PRINT_UNDEFINED);
+
+  return print->type;
+}
+
+/**
  * fpi_print_set_device_stored:
  * @print: A #FpPrint
  * @device_stored: Whether the print is stored on the device or not
@@ -214,7 +230,7 @@ fpi_print_add_from_image (FpPrint *print,
 
 /**
  * fpi_print_bz3_match:
- * @template: A #FpPrint containing one or more prints
+ * @print_template: A #FpPrint containing one or more prints
  * @print: A newly scanned #FpPrint to test
  * @score_threshold: The BZ3 match threshold
  * @error: Return location for error
@@ -228,14 +244,17 @@ fpi_print_add_from_image (FpPrint *print,
  * Returns: Whether the prints match, @error will be set if #FPI_MATCH_ERROR is returned
  */
 FpiMatchResult
-fpi_print_bz3_match (FpPrint *template, FpPrint *print, gint score_threshold, GError **error)
+fpi_print_bz3_match (FpPrint *print_template,
+                     FpPrint *print,
+                     gint     score_threshold,
+                     GError **error)
 {
   struct xyt_struct *pstruct;
   gint probe_len;
   gint i;
 
   /* XXX: Use a different error type? */
-  if (template->type != FPI_PRINT_NBIS)
+  if (print_template->type != FPI_PRINT_NBIS || print->type != FPI_PRINT_NBIS)
     {
       *error = fpi_device_error_new_msg (FP_DEVICE_ERROR_NOT_SUPPORTED,
                                          "It is only possible to match NBIS type print data");
@@ -252,11 +271,11 @@ fpi_print_bz3_match (FpPrint *template, FpPrint *print, gint score_threshold, GE
   pstruct = g_ptr_array_index (print->prints, 0);
   probe_len = bozorth_probe_init (pstruct);
 
-  for (i = 0; i < template->prints->len; i++)
+  for (i = 0; i < print_template->prints->len; i++)
     {
       struct xyt_struct *gstruct;
       gint score;
-      gstruct = g_ptr_array_index (template->prints, i);
+      gstruct = g_ptr_array_index (print_template->prints, i);
       score = bozorth_to_gallery (probe_len, pstruct, gstruct);
       fp_dbg ("score %d/%d", score, score_threshold);
 
@@ -359,7 +378,7 @@ fpi_print_generate_user_id (FpPrint *print)
   if (!username)
     username = "nobody";
 
-  if (g_strcmp0 (g_getenv ("FP_DEVICE_EMULATION"), "1") == 0)
+  if (fpi_device_emulation_mode_enabled (NULL))
     rand_id = 0;
   else
     rand_id = g_random_int ();

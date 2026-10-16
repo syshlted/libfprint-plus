@@ -48,6 +48,8 @@ static const FpIdEntry id_table[] = {
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x0108,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x0109,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x010A,  },
+  { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x010D,  },
+  { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x010E,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x0123,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x0124,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x0126,  },
@@ -61,6 +63,7 @@ static const FpIdEntry id_table[] = {
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x019D,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x019F,  },
   { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x01A0,  },
+  { .vid = SYNAPTICS_VENDOR_ID,  .pid = 0x01A4,  },
   { .vid = 0,  .pid = 0,  .driver_data = 0 },   /* terminating entry */
 };
 
@@ -171,6 +174,14 @@ cmd_receive_cb (FpiUsbTransfer *transfer,
        *      The original code did not! */
       if (msg_resp.msg_id == BMKT_RSP_GENERAL_ERROR)
         {
+          if (msg_resp.payload_len < 2 || !msg_resp.payload)
+            {
+              fp_warn ("Received General Error with short or empty payload");
+              fpi_ssm_mark_failed (transfer->ssm,
+                                   fpi_device_error_new (FP_DEVICE_ERROR_PROTO));
+              return;
+            }
+
           guint16 err;
 
           /* XXX: It is weird that this is big endian. */
@@ -1210,7 +1221,7 @@ prob_msg_cb (FpiDeviceSynaptics *self,
       return;
     }
 
-  if (g_strcmp0 (g_getenv ("FP_DEVICE_EMULATION"), "1") == 0)
+  if (fpi_device_emulation_mode_enabled (FP_DEVICE (self)))
     serial = g_strdup ("emulated-device");
   else
     serial = g_usb_device_get_string_descriptor (usb_dev,
@@ -1478,7 +1489,7 @@ suspend (FpDevice *dev)
   self->cmd_suspended = TRUE;
 
   /* Cancel the current transfer.
-   * The CMD SSM will go into the suspend state and signal readyness. */
+   * The CMD SSM will go into the suspend state and signal readiness. */
   g_cancellable_cancel (self->interrupt_cancellable);
   g_clear_object (&self->interrupt_cancellable);
   self->interrupt_cancellable = g_cancellable_new ();

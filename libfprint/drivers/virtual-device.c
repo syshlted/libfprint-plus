@@ -165,11 +165,7 @@ process_cmds (FpDeviceVirtualDevice * self,
     {
       g_autofree gchar *cmd = NULL;
 
-      /* TODO: g_ptr_array_steal_index requires GLib 2.58, we depend on 2.56 */
-      cmd = g_ptr_array_index (self->pending_commands, 0);
-      g_ptr_array_index (self->pending_commands, 0) = NULL;
-      g_ptr_array_remove_index (self->pending_commands, 0);
-
+      cmd = g_ptr_array_steal_index (self->pending_commands, 0);
       g_debug ("Processing command %s", cmd);
 
       /* These are always processed. */
@@ -549,6 +545,9 @@ dev_verify (FpDevice *dev)
       else
         {
           success = fp_print_equal (print, new_scan);
+
+          if (success)
+            fp_print_set_finger (new_scan, fp_print_get_finger (print));
         }
 
       if (!self->match_reported)

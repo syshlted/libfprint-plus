@@ -10,9 +10,10 @@ envs.set('G_TEST_SRCDIR', meson.current_source_dir())
 envs.set('G_TEST_BUILDDIR', meson.current_build_dir())
 envs.prepend('LD_LIBRARY_PATH', meson.project_build_root() / 'libfprint')
 
-# Set FP_DEVICE_EMULATION so that drivers can adapt (e.g. to use fixed
+# Set fp_device_emulation_env_var so that drivers can adapt (e.g. to use fixed
 # random numbers rather than proper ones)
-envs.set('FP_DEVICE_EMULATION', '1')
+fp_device_emulation_env_var = 'FP_DEVICE_EMULATION'
+envs.set(fp_device_emulation_env_var, '1')
 
 # Set a colon-separated list of native drivers we enable in tests
 envs.set('FP_DRIVERS_ALLOWLIST', ':'.join([
@@ -25,41 +26,44 @@ envs.set('FP_PRINTS_PATH', meson.project_source_root() / 'examples' / 'prints')
 
 envs.set('NO_AT_BRIDGE', '1')
 
-python3 = find_program('python3')
-
 installed_tests = get_option('installed-tests')
 installed_tests_execdir = libexecdir / 'installed-tests' / versioned_libname
 installed_tests_testdir = datadir / 'installed-tests' / versioned_libname
 installed_tests_libdir = libdir
 
-drivers_tests = [
-    'aes2501',
-    'aes3500',
-    'elan',
-    'elan-cobo',
-    'elanmoc',
-    'elanspi',
-    'synaptics',
-    'upektc_img',
-    'upektc_img-tcs1s',
-    'uru4000-msv2',
-    'uru4000-4500',
-    'vfs0050',
-    'vfs301',
-    'vfs5011',
-    'vfs7552',
-    'goodixmoc',
-    'nb1010',
-    'egis0570',
-    'egismoc',
-    'egismoc-05a1',
-    'egismoc-0586',
-    'egismoc-0587',
-    'fpcmoc',
-	'realtek',
-	'realtek-5816',
-    'focaltech_moc',
-]
+drivers_tests = {
+    'aes2501': { 'timeout': 20 },
+    'aes2550': {},
+    'aes3500': {},
+    'elan': {},
+    'elan-cobo': {},
+    'elanmoc': {},
+    'elanspi': { 'timeout': 30 },
+    'synaptics': {},
+    'upektc_img': {},
+    'upektc_img-tcs1s': {},
+    'uru4000-msv2': {},
+    'uru4000-4500': {},
+    'vfs0050': {},
+    'vfs301': {},
+    'vfs5011': {},
+    'vfs7552': {},
+    'goodixmoc': {},
+    'nb1010': {},
+    'egis0570': {},
+    'egismoc': {},
+    'egis_etu905': {},
+    'egismoc-05a1': {},
+    'egismoc-0586': {},
+    'egismoc-0587': {},
+    'fpcmoc': {},
+	'realtek': {},
+	'realtek-5816': {},
+    'focaltech_moc': { 'timeout': 30 },
+    'focaltech_moc-6553': {},
+    'mafpmoc': {},
+    'secugen': {},
+}
 
 if get_option('introspection')
   conf = configuration_data()
@@ -69,6 +73,25 @@ if get_option('introspection')
       input: 'create-driver-test.py.in',
       output: 'create-driver-test.py')
 endif
+
+test_emulation_lib = shared_library('fprint-test-emulation',
+    'test-emulation.c',
+    dependencies: libfprint_private_dep,
+    install: installed_tests,
+    install_dir: installed_tests_execdir,
+)
+
+# Paths where the test-emulation helper may be loaded via dlopen
+test_emulation = configuration_data()
+test_emulation.set_quoted('FPI_EMULATION_ENV_VAR',
+  fp_device_emulation_env_var)
+test_emulation.set_quoted('FPI_EMULATION_HELPER_BUILDDIR',
+  meson.project_build_root() / 'tests')
+test_emulation.set_quoted('FPI_EMULATION_HELPER_INSTALLDIR',
+  libexecdir / 'installed-tests' / versioned_libname)
+test_emulation.set_quoted('FPI_EMULATION_HELPER_MODULE',
+  fs.name(test_emulation_lib.full_path()))
+configure_file(output: 'fpi-test-emulation.h', configuration: test_emulation)
 
 env_parser_cmd = '''
 import os;
@@ -129,7 +152,10 @@ if get_option('introspection')
                     python3,
                     args: ut_args,
                     suite: ut_suite,
-                    depends: libfprint_typelib,
+                    depends: [
+                        libfprint_typelib,
+                        test_emulation_lib,
+                    ],
                     env: envs,
                 )
             endforeach
@@ -166,25 +192,55 @@ if get_option('introspection')
     endforeach
 
     driver_tests_enabled = false
-    foreach driver_test: drivers_tests
+    foreach driver_test, args: drivers_tests
         driver_name = driver_test.split('-')[0]
         driver_envs = envs
         driver_envs.set('FP_DRIVERS_ALLOWLIST', driver_name)
 
         if (driver_name in supported_drivers and
             gusb_dep.version().version_compare('>= 0.3.0'))
-            driver_tests_enabled = true
-            test(driver_test,
-                python3,
-                args: [
-                    umockdev_test.full_path(),
-                    meson.current_source_dir() / driver_test,
-                ],
-                env: driver_envs,
-                suite: ['drivers'],
-                timeout: 15,
-                depends: libfprint_typelib,
-            )
+
+            test_types = []
+            foreach test_type: args.get('test_types', ['custom', 'capture'])
+                test_file_prefix = meson.current_source_dir() / driver_test / test_type
+                if fs.exists(test_file_prefix + '.py')
+                    test_types += [test_type]
+                elif fs.exists(test_file_prefix + '.png')
+                    test_types += [test_type]
+                elif fs.exists(test_file_prefix + '.ioctl')
+                    test_types += [test_type]
+                elif fs.exists(test_file_prefix + '.pcapng')
+                    test_types += [test_type]
+                endif
+            endforeach
+
+            assert(test_types.length() > 0,
+                'No test types found for driver ' + driver_test)
+
+            foreach test_type: test_types
+                driver_tests_enabled = true
+                test_name = driver_test + (test_types.length() > 1 ? '-' + test_type : '')
+                test(test_name,
+                    python3,
+                    args: [
+                        umockdev_test.full_path(),
+                        meson.current_source_dir() / driver_test,
+                        '--test', test_type,
+                    ],
+                    env: driver_envs,
+                    is_parallel: args.get('is_parallel', true),
+                    priority: args.get('priority', 0),
+                    protocol: args.get('protocol', 'exitcode'),
+                    should_fail: args.get('should_fail', false),
+                    suite: ['drivers', test_type] + args.get('suite', []),
+                    timeout: args.get('timeout', 15),
+                    verbose: args.get('verbose', false),
+                    depends: [
+                        libfprint_typelib,
+                        test_emulation_lib,
+                    ],
+                )
+            endforeach
 
             if installed_tests
                 driver_envs_str = run_command(python3, '-c', env_parser_cmd,
@@ -322,14 +378,16 @@ foreach test_name: unit_tests
 endforeach
 
 # Run udev rule generator with fatal warnings
-envs.set('UDEV_HWDB', udev_hwdb.full_path())
-envs.set('UDEV_HWDB_CHECK_CONTENTS', default_drivers_are_enabled ? '1' : '0')
-envs.set('G_MESSAGES_DEBUG', '')
+hwdb_envs = envs
+hwdb_envs.set('UDEV_HWDB', udev_hwdb.full_path())
+hwdb_envs.set('UDEV_HWDB_CHECK_CONTENTS', default_drivers_are_enabled ? '1' : '0')
+hwdb_envs.set('G_MESSAGES_DEBUG', '')
 test('udev-hwdb',
      find_program('test-generated-hwdb.sh'),
      depends: udev_hwdb,
      suite: ['data', 'no-valgrind'],
-     env: envs)
+     env: hwdb_envs,
+)
 
 appstreamcli = find_program('appstreamcli', required: false)
 if appstreamcli.found()

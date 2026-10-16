@@ -121,10 +121,13 @@ fp_image_device_change_state (FpImageDevice *self, FpiImageDeviceState state)
     { FPI_IMAGE_DEVICE_STATE_DEACTIVATING, FPI_IMAGE_DEVICE_STATE_INACTIVE },
   };
 
-  prev_state_str = g_enum_to_string (FPI_TYPE_IMAGE_DEVICE_STATE, priv->state);
-  state_str = g_enum_to_string (FPI_TYPE_IMAGE_DEVICE_STATE, state);
-  fp_dbg ("Image device internal state change from %s to %s",
-          prev_state_str, state_str);
+  if (!g_log_writer_default_would_drop (G_LOG_LEVEL_DEBUG, G_LOG_DOMAIN))
+    {
+      prev_state_str = g_enum_to_string (FPI_TYPE_IMAGE_DEVICE_STATE, priv->state);
+      state_str = g_enum_to_string (FPI_TYPE_IMAGE_DEVICE_STATE, state);
+      fp_dbg ("Image device internal state change from %s to %s",
+              prev_state_str, state_str);
+    }
 
   for (i = 0; i < G_N_ELEMENTS (valid_transitions); i++)
     {
@@ -135,8 +138,15 @@ fp_image_device_change_state (FpImageDevice *self, FpiImageDeviceState state)
         }
     }
   if (!transition_is_valid)
-    g_warning ("Internal state machine issue: transition from %s to %s should not happen!",
-               prev_state_str, state_str);
+    {
+      if (!prev_state_str)
+        prev_state_str = g_enum_to_string (FPI_TYPE_IMAGE_DEVICE_STATE, priv->state);
+      if (!state_str)
+        state_str = g_enum_to_string (FPI_TYPE_IMAGE_DEVICE_STATE, state);
+
+      g_warning ("Internal state machine issue: transition from %s to %s should not happen!",
+                 prev_state_str, state_str);
+    }
 
   priv->state = state;
   g_object_notify (G_OBJECT (self), "fpi-image-device-state");
@@ -214,10 +224,6 @@ fp_image_device_maybe_complete_action (FpImageDevice *self, GError *error)
       fpi_device_get_enroll_data (device, &enroll_print);
 
       fpi_device_enroll_complete (device, g_object_ref (enroll_print), NULL);
-    }
-  else if (action == FPI_DEVICE_ACTION_VERIFY)
-    {
-      fpi_device_verify_complete (device, NULL);
     }
   else if (action == FPI_DEVICE_ACTION_IDENTIFY)
     {
@@ -316,31 +322,6 @@ fpi_image_device_minutiae_detected (GObject *source_object, GAsyncResult *res, g
         {
           fp_image_device_enroll_maybe_await_finger_on (FP_IMAGE_DEVICE (device));
         }
-    }
-  else if (action == FPI_DEVICE_ACTION_VERIFY)
-    {
-      FpPrint *template;
-      FpiMatchResult result;
-
-      fpi_device_get_verify_data (device, &template);
-      if (print)
-        {
-          if (priv->algorithm == FPI_PRINT_NBIS)
-            result = fpi_print_bz3_match (template, print, priv->score_threshold,
-                                          &error);
-          else if (priv->algorithm == FPI_PRINT_SIGFM)
-            result = fpi_print_sigfm_match (template, print, priv->score_threshold,
-                                            &error);
-        }
-      else
-        {
-          result = FPI_MATCH_ERROR;
-        }
-
-      if (!error || error->domain == FP_DEVICE_RETRY)
-        fpi_device_verify_report (device, result, g_steal_pointer (&print), g_steal_pointer (&error));
-
-      fp_image_device_maybe_complete_action (self, g_steal_pointer (&error));
     }
   else if (action == FPI_DEVICE_ACTION_IDENTIFY)
     {
@@ -504,7 +485,6 @@ fpi_image_device_image_captured (FpImageDevice *self, FpImage *image)
   g_return_if_fail (image != NULL);
   g_return_if_fail (priv->state == FPI_IMAGE_DEVICE_STATE_CAPTURE);
   g_return_if_fail (action == FPI_DEVICE_ACTION_ENROLL ||
-                    action == FPI_DEVICE_ACTION_VERIFY ||
                     action == FPI_DEVICE_ACTION_IDENTIFY ||
                     action == FPI_DEVICE_ACTION_CAPTURE);
 
@@ -553,7 +533,6 @@ fpi_image_device_retry_scan (FpImageDevice *self, FpDeviceRetry retry)
    * all but INACTIVE */
   g_return_if_fail (priv->state != FPI_IMAGE_DEVICE_STATE_INACTIVE);
   g_return_if_fail (action == FPI_DEVICE_ACTION_ENROLL ||
-                    action == FPI_DEVICE_ACTION_VERIFY ||
                     action == FPI_DEVICE_ACTION_IDENTIFY ||
                     action == FPI_DEVICE_ACTION_CAPTURE);
 
@@ -565,13 +544,6 @@ fpi_image_device_retry_scan (FpImageDevice *self, FpDeviceRetry retry)
       fpi_device_enroll_progress (FP_DEVICE (self), priv->enroll_stage, NULL, error);
 
       fp_image_device_change_state (self, FPI_IMAGE_DEVICE_STATE_AWAIT_FINGER_OFF);
-    }
-  else if (action == FPI_DEVICE_ACTION_VERIFY)
-    {
-      fpi_device_verify_report (FP_DEVICE (self), FPI_MATCH_ERROR, NULL, error);
-      fp_image_device_maybe_complete_action (self, NULL);
-      fpi_image_device_deactivate (self, TRUE);
-
     }
   else if (action == FPI_DEVICE_ACTION_IDENTIFY)
     {
@@ -665,7 +637,6 @@ fpi_image_device_activate_complete (FpImageDevice *self, GError *error)
   g_return_if_fail (priv->active == FALSE);
   g_return_if_fail (priv->state == FPI_IMAGE_DEVICE_STATE_ACTIVATING);
   g_return_if_fail (action == FPI_DEVICE_ACTION_ENROLL ||
-                    action == FPI_DEVICE_ACTION_VERIFY ||
                     action == FPI_DEVICE_ACTION_IDENTIFY ||
                     action == FPI_DEVICE_ACTION_CAPTURE);
 

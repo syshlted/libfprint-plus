@@ -30,7 +30,7 @@
   "  <url type=\"homepage\">https://fprint.freedesktop.org</url>\n" \
   "  <url type=\"vcs-browser\">https://gitlab.freedesktop.org/libfprint/libfprint</url>\n" \
   "  <url type=\"help\">https://fprint.freedesktop.org/libfprint-dev</url>\n" \
-  "  <url type=\"bugtracker\">https://gitlab.freedesktop.org/libfprint/libfprint/-/issues</url>\n" \
+  "  <url type=\"bugtracker\">https://gitlab.freedesktop.org/libfprint/libfprint/-/work_items</url>\n" \
   "  <summary>Async fingerprint readers library</summary>\n" \
   "  <description>\n" \
   "    <p>\n" \
@@ -77,6 +77,8 @@ main (void)
   g_autoptr(GArray) drivers = fpi_get_driver_types ();
   g_autoptr(GString) provided_modules = g_string_new (NULL);
   g_autoptr(GError) error = NULL;
+
+  g_log_writer_default_set_use_stderr (TRUE);
 
   g_array_sort (drivers, driver_compare);
 
