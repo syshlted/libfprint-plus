@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "sigfm/sigfm.h"
 #include <gio/gio.h>
 
 G_BEGIN_DECLS
@@ -43,6 +44,7 @@ void          fp_image_detect_minutiae (FpImage            *self,
                                         GCancellable       *cancellable,
                                         GAsyncReadyCallback callback,
                                         gpointer            user_data);
+
 gboolean      fp_image_detect_minutiae_finish (FpImage      *self,
                                                GAsyncResult *result,
                                                GError      **error);
@@ -55,5 +57,15 @@ const guchar * fp_image_get_binarized (FpImage *self,
 void           fp_minutia_get_coords (FpMinutia *min,
                                       gint      *x,
                                       gint      *y);
+
+void *   fp_image_get_sigfm_info (FpImage * self);
+void           fp_image_extract_sigfm_info (FpImage           * self,
+                                            GCancellable      * cancellable,
+                                            GAsyncReadyCallback callback,
+                                            gpointer            user_data);
+
+gboolean      fp_image_extract_sigfm_info_finish (FpImage      *self,
+                                               GAsyncResult *result,
+                                               GError      **error);
 
 G_END_DECLS

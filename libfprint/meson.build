@@ -25,6 +25,7 @@ libfprint_private_sources = [
     'fpi-print.c',
     'fpi-ssm.c',
     'fpi-usb-transfer.c',
+    'sigfm/sigfm.c',
 ] + spi_sources
 
 libfprint_public_headers = [
@@ -141,6 +142,7 @@ driver_sources = {
     'fpcmoc' : files('drivers/fpcmoc/fpc.c'),
     'realtek' : files('drivers/realtek/realtek.c'),
     'focaltech_moc' : files('drivers/focaltech_moc/focaltech_moc.c'),
+    'cs9711' : files('drivers/cs9711/cs9711.c'),
     'mafpmoc' : files('drivers/mafpmoc/mafpmoc.c'),
     'secugen' : files('drivers/secugen.c'),
 }
@@ -153,7 +155,6 @@ helper_sources = {
         'drivers/goodixtls/goodix_proto.c',
         'drivers/goodixtls/goodix.c',
         'drivers/goodixtls/goodixtls.c',
-        'sigfm/sigfm.c',
     ),
     'openssl': files(),
     'pixman': files(),
@@ -228,6 +229,8 @@ deps = [
     mathlib_dep,
 ] + optional_deps
 
+subdir('sigfm')
+
 # These are empty and only exist so that the include directories are created
 # in the build tree. This silences a build time warning.
 subdir('nbis/include')
@@ -300,6 +303,9 @@ libfprint_dep = declare_dependency(link_with: libfprint,
 
 install_headers(['fprint.h'] + libfprint_public_headers,
     subdir: versioned_libname
+)
+install_headers(['sigfm/sigfm.h'],
+  subdir: versioned_libname + '/sigfm'
 )
 
 libfprint_private_dep = declare_dependency(

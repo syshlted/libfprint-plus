@@ -1,4 +1,14 @@
 
+# Proposal fork for support of Chipsailing CS9711Fingprint
+
+This is a continuation of @ddlsmurf's [Chipsailing CS9711 driver](https://github.com/ddlsmurf/libfprint-CS9711). The purpose of this fork is to maintain the CS9711 driver by regularly rebasing its code and the underlying [sigfm MR](https://gitlab.freedesktop.org/libfprint/libfprint/-/merge_requests/530) onto subsequent libfprint releases until both are merged upstream. Bug reports for the driver code itself and contributions (including distribution specific installation instructions) are welcome.
+
+**No garantees are made by this author as to the validity and security of this code,
+while this author is very happy with the result, it should not be used for anything
+serious without serious testing.**
+
+# Original `README.md` left below
+<hr />
 
 <div align="center">
 

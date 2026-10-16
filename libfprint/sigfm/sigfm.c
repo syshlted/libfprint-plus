@@ -27,6 +27,7 @@
 #include "sigfm.h"
 
 #include <float.h>
+#include <limits.h>
 #include <stdint.h>
 #include <math.h>
 #include <stdlib.h>
@@ -60,8 +61,6 @@ struct SigfmImgInfo {
 
 #define SIFT_OCTAVE_LAYERS 3
 #define SIFT_CONTRAST_THRESHOLD 0.04
-#define SIFT_EDGE_THRESHOLD 18.0
-#define SIFT_SIGMA 2.0
 
 #define SIFT_INIT_SIGMA 0.5
 #define SIFT_IMG_BORDER 5
@@ -76,10 +75,12 @@ struct SigfmImgInfo {
 #define SIFT_DESCR_MAG_THR 0.2
 #define SIFT_INT_DESCR_FCTR 512.0
 
-#define DISTANCE_MATCH 0.85
 #define LENGTH_MATCH 0.05
 #define ANGLE_MATCH 0.05
 #define MIN_MATCH 5
+
+// Largest image side accepted by sigfm_extract(); real sensors are far smaller.
+#define SIGFM_MAX_DIM 4096
 
 // ---------------------------------------------------------------------------
 // Float images
@@ -309,6 +310,8 @@ typedef struct {
   // keypoints can live on (layers 1..SIFT_OCTAVE_LAYERS), indexed like gauss.
   Image* mag;
   Image* ori;
+  double sigma;          // SigfmParams, kept for keypoint sizes
+  double edge_threshold;
 } Pyramid;
 
 #define GAUSS(p, o, i) ((p)->gauss[(o) * (SIFT_OCTAVE_LAYERS + 3) + (i)])
@@ -337,8 +340,10 @@ static float atan2_deg(float y, float x)
     return a < 0 ? a + 360 : a;
 }
 
-static void build_pyramid(const Image* base, Pyramid* p)
+static void build_pyramid(const Image* base, const SigfmParams* params,
+                          Pyramid* p)
 {
+    const double sigma = params->sigma;
     const int layers = SIFT_OCTAVE_LAYERS;
     double sig[SIFT_OCTAVE_LAYERS + 3];
     double k = pow(2.0, 1.0 / layers);
@@ -349,9 +354,12 @@ static void build_pyramid(const Image* base, Pyramid* p)
     p->gauss = calloc(p->n_octaves * (layers + 3), sizeof(Image));
     p->dog = calloc(p->n_octaves * (layers + 2), sizeof(Image));
 
-    sig[0] = SIFT_SIGMA;
+    p->sigma = sigma;
+    p->edge_threshold = params->edge_threshold;
+
+    sig[0] = sigma;
     for (int i = 1; i < layers + 3; i++) {
-        double sig_prev = pow(k, (double) (i - 1)) * SIFT_SIGMA;
+        double sig_prev = pow(k, (double) (i - 1)) * sigma;
         double sig_total = sig_prev * k;
         sig[i] = sqrt(sig_total * sig_total - sig_prev * sig_prev);
     }
@@ -544,15 +552,15 @@ static int adjust_local_extrema(const Pyramid* p, Keypoint* kp, int o,
         double tr = dxx + dyy;
         double det = dxx * dyy - dxy * dxy;
 
-        if (det <= 0 || tr * tr * SIFT_EDGE_THRESHOLD >=
-                            (SIFT_EDGE_THRESHOLD + 1) * (SIFT_EDGE_THRESHOLD + 1) * det)
+        if (det <= 0 || tr * tr * p->edge_threshold >=
+                            (p->edge_threshold + 1) * (p->edge_threshold + 1) * det)
             return 0;
     }
 
     kp->x = (float) ((*c + xc) * (1 << o));
     kp->y = (float) ((*r + xr) * (1 << o));
     kp->octave = o + (*layer << 8) + ((int) lrint((xi + 0.5) * 255) << 16);
-    kp->size = (float) (SIFT_SIGMA * pow(2.0, (*layer + xi) / SIFT_OCTAVE_LAYERS) *
+    kp->size = (float) (p->sigma * pow(2.0, (*layer + xi) / SIFT_OCTAVE_LAYERS) *
                         (1 << o) * 2);
     return 1;
 }
@@ -790,6 +798,21 @@ static int kp_cmp(const void* a, const void* b)
 
 SigfmImgInfo* sigfm_extract(const SigfmPix* pix, int width, int height)
 {
+    const SigfmParams params = {SIGFM_DEFAULT_SIGMA,
+                                SIGFM_DEFAULT_EDGE_THRESHOLD, 1};
+
+    return sigfm_extract_params(pix, width, height, &params);
+}
+
+SigfmImgInfo* sigfm_extract_params(const SigfmPix* pix, int width, int height,
+                                   const SigfmParams* params)
+{
+    if (!pix || !params || width <= 0 || height <= 0 ||
+        width > SIGFM_MAX_DIM || height > SIGFM_MAX_DIM ||
+        !(params->sigma >= 0.5 && params->sigma <= 10) ||
+        !(params->edge_threshold >= 1 && params->edge_threshold <= 100))
+        return NULL;
+
     SigfmImgInfo* info = calloc(1, sizeof(SigfmImgInfo));
     unsigned char* enhanced = malloc((size_t) width * height);
     Image img = image_new(width, height);
@@ -797,24 +820,24 @@ SigfmImgInfo* sigfm_extract(const SigfmPix* pix, int width, int height)
     Pyramid pyr;
 
     // Enhance local contrast for better SIFT detection.
-    if (!clahe(pix, width, height, enhanced))
+    if (!params->clahe || !clahe(pix, width, height, enhanced))
         memcpy(enhanced, pix, (size_t) width * height);
     for (int i = 0; i < width * height; i++)
         img.px[i] = enhanced[i];
     free(enhanced);
 
-    // Base image: doubled, blurred to SIFT_SIGMA assuming the input already
+    // Base image: doubled, blurred to the sigma assuming the input already
     // has SIFT_INIT_SIGMA.
     Image base = upscale2(&img);
     free(img.px);
     {
-        double sig_diff = sqrt(fmax(SIFT_SIGMA * SIFT_SIGMA -
+        double sig_diff = sqrt(fmax(params->sigma * params->sigma -
                                         SIFT_INIT_SIGMA * SIFT_INIT_SIGMA * 4,
                                     0.01));
         gaussian_blur(&base, &base, sig_diff);
     }
 
-    build_pyramid(&base, &pyr);
+    build_pyramid(&base, params, &pyr);
     free(base.px);
     find_extrema(&pyr, &kps);
 
@@ -866,6 +889,169 @@ void sigfm_free_info(SigfmImgInfo* info)
 int sigfm_keypoints_count(SigfmImgInfo* info) { return info->n; }
 
 // ---------------------------------------------------------------------------
+// Storage
+// ---------------------------------------------------------------------------
+
+// Serialized form, all values little-endian:
+//   "SGF1"            4 bytes, magic and version
+//   n                 uint32, number of keypoints
+//   n keypoints       x, y, size, angle as IEEE-754 binary32, octave as int32
+//   n descriptors     DESC_LEN binary32 values each
+// The length must match n exactly. The data comes from storage that may have
+// been tampered with, so the reader checks every size and value before use.
+
+#define SERIAL_MAGIC "SGF1"
+#define SERIAL_HEADER 8
+#define SERIAL_KP_SIZE (5 * 4)
+#define SERIAL_DESC_SIZE (DESC_LEN * 4)
+#define SERIAL_ENTRY_SIZE (SERIAL_KP_SIZE + SERIAL_DESC_SIZE)
+// A frame never yields more keypoints than it has pixels
+#define SERIAL_MAX_KEYPOINTS (SIGFM_MAX_DIM * SIGFM_MAX_DIM / 16)
+// Bound on keypoint coordinates and size, so matching arithmetic stays sane
+#define SERIAL_MAX_COORD 1e6f
+
+static void put_u32(unsigned char* p, uint32_t v)
+{
+    p[0] = v & 0xff;
+    p[1] = (v >> 8) & 0xff;
+    p[2] = (v >> 16) & 0xff;
+    p[3] = (v >> 24) & 0xff;
+}
+
+static uint32_t get_u32(const unsigned char* p)
+{
+    return (uint32_t) p[0] | (uint32_t) p[1] << 8 | (uint32_t) p[2] << 16 |
+           (uint32_t) p[3] << 24;
+}
+
+static void put_f32(unsigned char* p, float f)
+{
+    uint32_t v;
+
+    memcpy(&v, &f, sizeof(v));
+    put_u32(p, v);
+}
+
+static float get_f32(const unsigned char* p)
+{
+    uint32_t v = get_u32(p);
+    float f;
+
+    memcpy(&f, &v, sizeof(f));
+    return f;
+}
+
+unsigned char* sigfm_serialize_binary(SigfmImgInfo* info, int* outlen)
+{
+    if (!info || !outlen || info->n < 0 || info->n > SERIAL_MAX_KEYPOINTS)
+        return NULL;
+
+    size_t len = SERIAL_HEADER + (size_t) info->n * SERIAL_ENTRY_SIZE;
+    unsigned char* out = malloc(len);
+    unsigned char* p;
+
+    if (!out)
+        return NULL;
+
+    memcpy(out, SERIAL_MAGIC, 4);
+    put_u32(out + 4, (uint32_t) info->n);
+    p = out + SERIAL_HEADER;
+    for (int i = 0; i < info->n; i++) {
+        const Keypoint* kp = &info->kps[i];
+
+        put_f32(p, kp->x);
+        put_f32(p + 4, kp->y);
+        put_f32(p + 8, kp->size);
+        put_f32(p + 12, kp->angle);
+        put_u32(p + 16, (uint32_t) kp->octave);
+        p += SERIAL_KP_SIZE;
+    }
+    for (size_t i = 0; i < (size_t) info->n * DESC_LEN; i++, p += 4)
+        put_f32(p, info->desc[i]);
+
+    *outlen = (int) len;
+    return out;
+}
+
+static int finite_within(float v, float limit)
+{
+    return isfinite(v) && fabsf(v) <= limit;
+}
+
+SigfmImgInfo* sigfm_deserialize_binary(const unsigned char* bytes, int len)
+{
+    if (!bytes || len < SERIAL_HEADER || memcmp(bytes, SERIAL_MAGIC, 4) != 0)
+        return NULL;
+
+    uint32_t n = get_u32(bytes + 4);
+
+    if (n > SERIAL_MAX_KEYPOINTS ||
+        (size_t) len != SERIAL_HEADER + (size_t) n * SERIAL_ENTRY_SIZE)
+        return NULL;
+
+    SigfmImgInfo* info = calloc(1, sizeof(SigfmImgInfo));
+    if (!info)
+        return NULL;
+    info->kps = calloc(n ? n : 1, sizeof(Keypoint));
+    info->desc = calloc((size_t) (n ? n : 1) * DESC_LEN, sizeof(float));
+    if (!info->kps || !info->desc) {
+        sigfm_free_info(info);
+        return NULL;
+    }
+    info->n = (int) n;
+
+    const unsigned char* p = bytes + SERIAL_HEADER;
+    for (uint32_t i = 0; i < n; i++, p += SERIAL_KP_SIZE) {
+        Keypoint* kp = &info->kps[i];
+
+        kp->x = get_f32(p);
+        kp->y = get_f32(p + 4);
+        kp->size = get_f32(p + 8);
+        kp->angle = get_f32(p + 12);
+        kp->octave = (int32_t) get_u32(p + 16);
+        if (!finite_within(kp->x, SERIAL_MAX_COORD) ||
+            !finite_within(kp->y, SERIAL_MAX_COORD) ||
+            !finite_within(kp->size, SERIAL_MAX_COORD) ||
+            !finite_within(kp->angle, 360.f)) {
+            sigfm_free_info(info);
+            return NULL;
+        }
+    }
+    for (size_t i = 0; i < (size_t) n * DESC_LEN; i++, p += 4) {
+        info->desc[i] = get_f32(p);
+        if (!isfinite(info->desc[i])) {
+            sigfm_free_info(info);
+            return NULL;
+        }
+    }
+    return info;
+}
+
+SigfmImgInfo* sigfm_copy_info(SigfmImgInfo* info)
+{
+    if (!info || info->n < 0)
+        return NULL;
+
+    SigfmImgInfo* copy = calloc(1, sizeof(SigfmImgInfo));
+    size_t n = (size_t) info->n;
+
+    if (!copy)
+        return NULL;
+    copy->kps = calloc(n ? n : 1, sizeof(Keypoint));
+    copy->desc = calloc((n ? n : 1) * DESC_LEN, sizeof(float));
+    if (!copy->kps || !copy->desc) {
+        sigfm_free_info(copy);
+        return NULL;
+    }
+    copy->n = info->n;
+    if (n) {
+        memcpy(copy->kps, info->kps, n * sizeof(Keypoint));
+        memcpy(copy->desc, info->desc, n * DESC_LEN * sizeof(float));
+    }
+    return copy;
+}
+
+// ---------------------------------------------------------------------------
 // Matching
 // ---------------------------------------------------------------------------
 
@@ -907,7 +1093,7 @@ static float l2(const float* a, const float* b)
 // point pairs, sorted and deduplicated. Returns the number of ratio-test
 // matches before deduplication; *out holds *n_out unique ones.
 static int ratio_matches(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
-                         Match** out, int* n_out)
+                         double ratio, int legacy, Match** out, int* n_out)
 {
     Match* m = malloc((size_t) (frame->n ? frame->n : 1) * sizeof(Match));
     int nb = 0;
@@ -928,7 +1114,7 @@ static int ratio_matches(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
         }
         if (best < 0 || enrolled->n < 2)
             continue;
-        if (d1 < DISTANCE_MATCH * d2) {
+        if (d1 < ratio * d2) {
             m[nb].x1 = (int) lrintf(frame->kps[i].x);
             m[nb].y1 = (int) lrintf(frame->kps[i].y);
             m[nb].x2 = (int) lrintf(enrolled->kps[best].x);
@@ -938,7 +1124,22 @@ static int ratio_matches(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
     }
 
     int n = 0;
-    if (nb > 0) {
+    if (nb > 0 && legacy) {
+        // The CS9711 project's C++ kept these in a std::set whose "less than"
+        // could only ever be true on the y coordinate of the frame point, so
+        // it kept the first match for each distinct y1. Reproduced here so
+        // the scores keep the meaning the driver's default threshold was
+        // tuned against.
+        for (int i = 0; i < nb; i++) {
+            int dup = 0;
+            for (int j = 0; j < n && !dup; j++)
+                dup = m[j].y1 == m[i].y1;
+            if (!dup)
+                m[n++] = m[i];
+        }
+        qsort(m, n, sizeof(Match), match_cmp);
+    }
+    else if (nb > 0) {
         qsort(m, nb, sizeof(Match), match_cmp);
         n = 1;
         for (int i = 1; i < nb; i++)
@@ -952,9 +1153,19 @@ static int ratio_matches(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
 
 int sigfm_match_score(SigfmImgInfo* frame, SigfmImgInfo* enrolled)
 {
+    return sigfm_match_score_ratio(frame, enrolled, SIGFM_DEFAULT_RATIO);
+}
+
+static int match_score(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
+                       double ratio, int legacy)
+{
     Match* matches;
     int n;
-    int nb_matched = ratio_matches(frame, enrolled, &matches, &n);
+
+    if (!frame || !enrolled || !(ratio > 0 && ratio <= 1))
+        return -1;
+
+    int nb_matched = ratio_matches(frame, enrolled, ratio, legacy, &matches, &n);
 
     if (nb_matched < MIN_MATCH) {
         free(matches);
@@ -991,7 +1202,9 @@ int sigfm_match_score(SigfmImgInfo* frame, SigfmImgInfo* enrolled)
         return 0;
     }
 
-    int count = 0;
+    // Counted in 64 bits and clamped: a print compared with itself gives a
+    // count that overflows int, and a negative score would read as an error.
+    long long count = 0;
     for (size_t j = 0; j < n_angles; j++)
         for (size_t k = j + 1; k < n_angles; k++)
             if (1 - fmin(angles[j].sin, angles[k].sin) /
@@ -1002,5 +1215,17 @@ int sigfm_match_score(SigfmImgInfo* frame, SigfmImgInfo* enrolled)
                     ANGLE_MATCH)
                 count++;
     free(angles);
-    return count;
+    return count > INT_MAX ? INT_MAX : (int) count;
+}
+
+int sigfm_match_score_ratio(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
+                            double ratio)
+{
+    return match_score(frame, enrolled, ratio, 0);
+}
+
+int sigfm_match_score_legacy(SigfmImgInfo* frame, SigfmImgInfo* enrolled,
+                             double ratio)
+{
+    return match_score(frame, enrolled, ratio, 1);
 }
